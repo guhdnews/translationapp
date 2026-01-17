@@ -1,66 +1,150 @@
-import Image from "next/image";
-import styles from "./page.module.css";
+"use client";
+
+import { useState } from "react";
+import { ThemeToggle } from "@/components/ThemeToggle";
+import { FileUploader } from "@/components/FileUploader";
+import { LanguageSelector } from "@/components/LanguageSelector";
+import { TranslationResult } from "@/components/TranslationResult";
+import { LoadingSpinner } from "@/components/LoadingSpinner";
+
+interface TranslationResponse {
+  dialect: string;
+  transcription: string;
+  translation: string;
+  targetLanguage: string;
+}
+
+interface ErrorState {
+  title: string;
+  message: string;
+}
 
 export default function Home() {
+  const [file, setFile] = useState<File | null>(null);
+  const [targetLanguage, setTargetLanguage] = useState("en");
+  const [isLoading, setIsLoading] = useState(false);
+  const [result, setResult] = useState<TranslationResponse | null>(null);
+  const [error, setError] = useState<ErrorState | null>(null);
+
+  const handleTranslate = async () => {
+    if (!file) return;
+
+    setIsLoading(true);
+    setError(null);
+    setResult(null);
+
+    try {
+      const formData = new FormData();
+      formData.append("audio", file);
+      formData.append("targetLanguage", targetLanguage);
+
+      const response = await fetch("/api/translate", {
+        method: "POST",
+        body: formData,
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "Translation failed");
+      }
+
+      setResult(data);
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : "An unexpected error occurred";
+      setError({
+        title: "Translation Failed",
+        message: errorMessage,
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleReset = () => {
+    setFile(null);
+    setResult(null);
+    setError(null);
+  };
+
   return (
-    <div className={styles.page}>
-      <main className={styles.main}>
-        <Image
-          className={styles.logo}
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className={styles.intro}>
-          <h1>To get started, edit the page.tsx file.</h1>
-          <p>
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              target="_blank"
-              rel="noopener noreferrer"
+    <main className="container">
+      <header className="header">
+        <h1 className="header__title">Translate Voice Notes</h1>
+        <ThemeToggle />
+      </header>
+
+      {!result ? (
+        <>
+          <FileUploader
+            file={file}
+            onFileSelect={setFile}
+            disabled={isLoading}
+          />
+
+          <LanguageSelector
+            value={targetLanguage}
+            onChange={setTargetLanguage}
+          />
+
+          {error && (
+            <div className="error">
+              <div className="error__title">{error.title}</div>
+              <div className="error__message">{error.message}</div>
+            </div>
+          )}
+
+          {isLoading ? (
+            <div className="loading">
+              <LoadingSpinner size="large" />
+              <p className="loading__text">Translating your voice note...</p>
+              <p className="loading__subtext">This may take a few moments</p>
+            </div>
+          ) : (
+            <button
+              className="btn btn--primary"
+              onClick={handleTranslate}
+              disabled={!file}
             >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className={styles.ctas}>
-          <a
-            className={styles.primary}
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M5 8l6 6M4 14l6-6 2 3" strokeLinecap="round" strokeLinejoin="round" />
+                <rect x="14" y="4" width="6" height="16" rx="2" />
+                <path d="M17 8v8" />
+              </svg>
+              Translate
+            </button>
+          )}
+
+          <div className="install-hint">
+            <svg className="install-hint__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M12 2v10m0 0l-4-4m4 4l4-4" strokeLinecap="round" strokeLinejoin="round" />
+              <path d="M5 12v7a2 2 0 002 2h10a2 2 0 002-2v-7" strokeLinecap="round" />
+            </svg>
+            <span>Install this app to share voice notes directly from your phone</span>
+          </div>
+        </>
+      ) : (
+        <>
+          <TranslationResult
+            dialect={result.dialect}
+            transcription={result.transcription}
+            translation={result.translation}
+            targetLanguage={result.targetLanguage}
+          />
+
+          <button
+            className="btn btn--secondary"
+            onClick={handleReset}
+            style={{ marginTop: "1rem" }}
           >
-            <Image
-              className={styles.logo}
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className={styles.secondary}
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
-    </div>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M3 12a9 9 0 109-9 9.75 9.75 0 00-6.74 2.74L3 8" strokeLinecap="round" strokeLinejoin="round" />
+              <path d="M3 3v5h5" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+            Translate Another
+          </button>
+        </>
+      )}
+    </main>
   );
 }
