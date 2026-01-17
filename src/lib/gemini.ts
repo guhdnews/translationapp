@@ -1,12 +1,5 @@
-import { GoogleGenAI } from "@google/genai";
-
-const apiKey = process.env.GEMINI_API_KEY;
-
-if (!apiKey) {
-    throw new Error("GEMINI_API_KEY environment variable is not set");
-}
-
-export const genAI = new GoogleGenAI({ apiKey });
+// Client-safe constants for the Gemini integration
+// These can be imported by both client and server components
 
 export const SUPPORTED_AUDIO_TYPES = [
     "audio/mpeg",
