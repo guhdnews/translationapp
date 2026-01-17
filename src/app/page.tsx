@@ -10,6 +10,7 @@ import { LoadingSpinner } from "@/components/LoadingSpinner";
 interface TranslationResponse {
   dialect: string;
   transcription: string;
+  transliteration: string;
   translation: string;
   targetLanguage: string;
 }
@@ -21,10 +22,23 @@ interface ErrorState {
 
 export default function Home() {
   const [file, setFile] = useState<File | null>(null);
+  const [audioUrl, setAudioUrl] = useState<string | null>(null);
   const [targetLanguage, setTargetLanguage] = useState("en");
   const [isLoading, setIsLoading] = useState(false);
   const [result, setResult] = useState<TranslationResponse | null>(null);
   const [error, setError] = useState<ErrorState | null>(null);
+
+  const handleFileSelect = (selectedFile: File | null) => {
+    setFile(selectedFile);
+    // Create object URL for audio playback
+    if (selectedFile) {
+      if (audioUrl) URL.revokeObjectURL(audioUrl);
+      setAudioUrl(URL.createObjectURL(selectedFile));
+    } else {
+      if (audioUrl) URL.revokeObjectURL(audioUrl);
+      setAudioUrl(null);
+    }
+  };
 
   const handleTranslate = async () => {
     if (!file) return;
@@ -63,6 +77,8 @@ export default function Home() {
 
   const handleReset = () => {
     setFile(null);
+    if (audioUrl) URL.revokeObjectURL(audioUrl);
+    setAudioUrl(null);
     setResult(null);
     setError(null);
   };
@@ -78,7 +94,7 @@ export default function Home() {
         <>
           <FileUploader
             file={file}
-            onFileSelect={setFile}
+            onFileSelect={handleFileSelect}
             disabled={isLoading}
           />
 
@@ -128,8 +144,10 @@ export default function Home() {
           <TranslationResult
             dialect={result.dialect}
             transcription={result.transcription}
+            transliteration={result.transliteration}
             translation={result.translation}
             targetLanguage={result.targetLanguage}
+            audioUrl={audioUrl || undefined}
           />
 
           <button

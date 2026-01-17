@@ -100,20 +100,23 @@ Provide:
 
 2. **Transcription**: Complete transcription in the original language using native script.
 
-3. **Translation**: Accurate translation into ${targetLangName}, preserving meaning and tone.
+3. **Transliteration**: The transcription written in Latin/Roman characters so English speakers can read and pronounce it. Use standard transliteration conventions.
+
+4. **Translation**: Accurate translation into ${targetLangName}, preserving meaning and tone.
 
 IMPORTANT: Return ONLY valid JSON in this exact format:
 {
-  "dialect": "Specific dialect name with region (e.g., 'Yemeni Arabic (Sana'ani dialect)')",
+  "dialect": "Specific dialect name with region",
   "transcription": "original text in native script",
+  "transliteration": "romanized/Latin version of the transcription",
   "translation": "translation in ${targetLangName}"
 }
 
 No additional text or markdown - only the JSON object.`;
 
-        // Call Gemini API with audio using 2.5 Pro (best for accurate audio analysis)
+        // Call Gemini API with audio using Gemini 3 Flash (best accuracy)
         const response = await genAI.models.generateContent({
-            model: "gemini-2.5-pro",
+            model: "gemini-3-flash-preview",
             contents: [
                 {
                     role: "user",
@@ -158,6 +161,7 @@ No additional text or markdown - only the JSON object.`;
         return NextResponse.json({
             dialect: result.dialect,
             transcription: result.transcription,
+            transliteration: result.transliteration || "",
             translation: result.translation,
             targetLanguage: targetLangName,
         });
