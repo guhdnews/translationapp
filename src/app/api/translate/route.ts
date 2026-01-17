@@ -68,27 +68,52 @@ export async function POST(request: NextRequest) {
 
         const genAI = new GoogleGenAI({ apiKey });
 
-        // Create the prompt for translation
-        const prompt = `You are a professional translator and linguist. Analyze this audio recording and provide:
+        // Create the prompt for translation with enhanced dialect detection
+        const prompt = `You are an expert linguist and dialectologist specializing in accurate language and dialect identification. Your task is to analyze this audio recording with extreme precision.
 
-1. **Dialect Detection**: Identify the specific language AND dialect/regional variant being spoken. Be as specific as possible (e.g., "Egyptian Arabic", "Castilian Spanish", "British English", "Brazilian Portuguese", "Mandarin Chinese (Beijing dialect)", etc.). If you can identify the specific region or accent, include that.
+## CRITICAL: DIALECT DETECTION
 
-2. **Transcription**: Provide a complete, accurate transcription of the audio in the original language. Use the native script (Arabic script for Arabic, Chinese characters for Chinese, etc.).
+Listen carefully to the audio and identify the EXACT regional dialect. Pay close attention to:
 
-3. **Translation**: Translate the transcription into ${targetLangName}. Maintain the meaning, tone, and nuance of the original as much as possible.
+**For Arabic:**
+- Phonological markers (pronunciation of ق، ج، ث، ذ، ظ)
+- Vocabulary choices unique to specific regions
+- Grammatical structures and verb conjugations
+- Intonation patterns and prosody
+- Common dialectal expressions
 
-IMPORTANT: Return your response as valid JSON in exactly this format:
+Arabic dialect categories to consider:
+- Gulf Arabic: Emirati, Kuwaiti, Qatari, Bahraini, Saudi (Najdi, Hijazi, Eastern)
+- Yemeni Arabic: Sana'ani, Hadhrami, Ta'izzi-Adeni
+- Levantine Arabic: Lebanese, Syrian, Jordanian, Palestinian
+- Egyptian Arabic
+- Maghrebi Arabic: Moroccan, Algerian, Tunisian, Libyan
+- Sudanese Arabic
+- Iraqi Arabic
+
+**For other languages**, identify the specific regional variant (e.g., Mexican vs Castilian Spanish, Brazilian vs European Portuguese, etc.)
+
+## YOUR RESPONSE
+
+Provide:
+1. **Dialect**: The specific regional dialect with confidence. Be PRECISE - don't just say "Arabic", specify the exact dialect like "Yemeni Arabic (Sana'ani dialect)" or "Gulf Arabic (Kuwaiti)".
+
+2. **Transcription**: Complete transcription in the original language using native script.
+
+3. **Translation**: Accurate translation into ${targetLangName}, preserving meaning and tone.
+
+IMPORTANT: Return ONLY valid JSON in this exact format:
 {
-  "dialect": "the detected language and dialect/regional variant",
-  "transcription": "the original transcription in native script",
-  "translation": "the translation in ${targetLangName}"
+  "dialect": "Specific dialect name with region (e.g., 'Yemeni Arabic (Sana'ani dialect)')",
+  "transcription": "original text in native script",
+  "translation": "translation in ${targetLangName}"
 }
 
-Only return the JSON object, no additional text or markdown.`;
+No additional text or markdown - only the JSON object.`;
 
-        // Call Gemini API with audio
+        // Call Gemini API with audio using the more capable model
         const response = await genAI.models.generateContent({
-            model: "gemini-2.0-flash",
+            model: "gemini-2.5-pro-preview-05-06",
             contents: [
                 {
                     role: "user",
@@ -149,8 +174,24 @@ Only return the JSON object, no additional text or markdown.`;
             );
         }
 
+        // Rate limit / quota errors
+        if (errorMessage.includes("429") || errorMessage.includes("RESOURCE_EXHAUSTED") || errorMessage.includes("quota")) {
+            return NextResponse.json(
+                { error: "API rate limit reached. Please try again in a few moments." },
+                { status: 429 }
+            );
+        }
+
+        // API key errors
+        if (errorMessage.includes("401") || errorMessage.includes("API_KEY") || errorMessage.includes("authentication")) {
+            return NextResponse.json(
+                { error: "API configuration error. Please contact support." },
+                { status: 500 }
+            );
+        }
+
         return NextResponse.json(
-            { error: `Translation failed: ${errorMessage}` },
+            { error: `Translation failed. Please try again.` },
             { status: 500 }
         );
     }
