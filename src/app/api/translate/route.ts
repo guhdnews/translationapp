@@ -111,9 +111,9 @@ IMPORTANT: Return ONLY valid JSON in this exact format:
 
 No additional text or markdown - only the JSON object.`;
 
-        // Call Gemini API with audio using the more capable model
+        // Call Gemini API with audio using 2.5 Pro (best for accurate audio analysis)
         const response = await genAI.models.generateContent({
-            model: "gemini-2.5-pro-preview-05-06",
+            model: "gemini-2.5-pro",
             contents: [
                 {
                     role: "user",
