@@ -233,6 +233,40 @@ p {
   background: var(--bg-secondary);
 }
 
+/* Paste button for mobile */
+.uploader__paste-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  margin-top: 1rem;
+  padding: 0.625rem 1rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  font-family: inherit;
+  color: var(--text-primary);
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all var(--transition);
+}
+
+.uploader__paste-btn:hover {
+  background: var(--bg-secondary);
+  border-color: var(--border-hover);
+}
+
+.uploader__paste-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.uploader__paste-btn svg {
+  width: 16px;
+  height: 16px;
+}
+
 /* Language Selector */
 .language-selector {
   margin-bottom: 1.5rem;

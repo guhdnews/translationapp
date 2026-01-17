@@ -11,11 +11,11 @@ interface FileUploaderProps {
 
 export function FileUploader({ file, onFileSelect, disabled }: FileUploaderProps) {
     const [isDragActive, setIsDragActive] = useState(false);
-    const [pasteHint, setPasteHint] = useState(false);
+    const [isPasting, setIsPasting] = useState(false);
     const inputRef = useRef<HTMLInputElement>(null);
     const dropzoneRef = useRef<HTMLDivElement>(null);
 
-    // Global paste event listener
+    // Global paste event listener (for desktop keyboard shortcuts)
     useEffect(() => {
         const handlePaste = async (e: ClipboardEvent) => {
             if (disabled) return;
@@ -24,7 +24,6 @@ export function FileUploader({ file, onFileSelect, disabled }: FileUploaderProps
             if (!items) return;
 
             for (const item of Array.from(items)) {
-                // Check if it's a file
                 if (item.kind === "file") {
                     const pastedFile = item.getAsFile();
                     if (pastedFile && isValidAudioFile(pastedFile)) {
@@ -35,7 +34,6 @@ export function FileUploader({ file, onFileSelect, disabled }: FileUploaderProps
                 }
             }
 
-            // Also check for files directly (some browsers put files here)
             const files = e.clipboardData?.files;
             if (files && files.length > 0) {
                 const pastedFile = files[0];
@@ -51,21 +49,57 @@ export function FileUploader({ file, onFileSelect, disabled }: FileUploaderProps
         return () => document.removeEventListener("paste", handlePaste);
     }, [disabled, onFileSelect]);
 
-    // Show paste hint on focus
-    useEffect(() => {
-        const handleFocus = () => setPasteHint(true);
-        const handleBlur = () => setPasteHint(false);
+    // Handle paste button click (for mobile)
+    const handlePasteClick = async (e: React.MouseEvent) => {
+        e.stopPropagation();
+        if (disabled || isPasting) return;
 
-        const dropzone = dropzoneRef.current;
-        if (dropzone) {
-            dropzone.addEventListener("focus", handleFocus);
-            dropzone.addEventListener("blur", handleBlur);
-            return () => {
-                dropzone.removeEventListener("focus", handleFocus);
-                dropzone.removeEventListener("blur", handleBlur);
-            };
+        setIsPasting(true);
+
+        try {
+            // Use the Clipboard API to read
+            const clipboardItems = await navigator.clipboard.read();
+
+            for (const item of clipboardItems) {
+                // Look for audio types
+                for (const type of item.types) {
+                    if (type.startsWith("audio/") || type === "application/octet-stream") {
+                        const blob = await item.getType(type);
+                        const pastedFile = new File([blob], "pasted-audio" + getExtensionForType(type), { type });
+                        if (isValidAudioFile(pastedFile)) {
+                            onFileSelect(pastedFile);
+                            setIsPasting(false);
+                            return;
+                        }
+                    }
+                }
+            }
+
+            // If no audio found, try reading as files
+            alert("No audio file found in clipboard. Try copying a voice note first.");
+        } catch (err) {
+            // Clipboard API might not be supported or permission denied
+            console.error("Clipboard read error:", err);
+            alert("Could not read clipboard. Please use the file picker instead, or share directly from Voice Memos.");
+        } finally {
+            setIsPasting(false);
         }
-    }, []);
+    };
+
+    const getExtensionForType = (mimeType: string): string => {
+        const extensions: Record<string, string> = {
+            "audio/mpeg": ".mp3",
+            "audio/mp4": ".m4a",
+            "audio/x-m4a": ".m4a",
+            "audio/wav": ".wav",
+            "audio/webm": ".webm",
+            "audio/ogg": ".ogg",
+            "audio/aac": ".aac",
+            "audio/x-caf": ".caf",
+            "application/octet-stream": ".m4a",
+        };
+        return extensions[mimeType] || ".audio";
+    };
 
     const handleDrag = useCallback((e: React.DragEvent) => {
         e.preventDefault();
@@ -132,13 +166,10 @@ export function FileUploader({ file, onFileSelect, disabled }: FileUploaderProps
     };
 
     const isValidAudioFile = (file: File): boolean => {
-        // Check MIME type
         if (SUPPORTED_AUDIO_TYPES.includes(file.type)) {
             return true;
         }
-        // Fallback: check file extension
         const ext = file.name.split(".").pop()?.toLowerCase();
-        // Also accept caf files (iOS voice memo format)
         return ["mp3", "m4a", "wav", "webm", "ogg", "aac", "mp4", "caf"].includes(ext || "");
     };
 
@@ -152,7 +183,6 @@ export function FileUploader({ file, onFileSelect, disabled }: FileUploaderProps
         "uploader__dropzone",
         isDragActive && "uploader__dropzone--active",
         file && "uploader__dropzone--has-file",
-        pasteHint && !file && "uploader__dropzone--paste-ready",
     ]
         .filter(Boolean)
         .join(" ");
@@ -170,7 +200,7 @@ export function FileUploader({ file, onFileSelect, disabled }: FileUploaderProps
                 role="button"
                 tabIndex={0}
                 onKeyDown={(e) => e.key === "Enter" && handleClick()}
-                aria-label={file ? `Selected file: ${file.name}. Click to change.` : "Upload audio file. You can also paste from clipboard."}
+                aria-label={file ? `Selected file: ${file.name}. Click to change.` : "Upload audio file"}
             >
                 <input
                     ref={inputRef}
@@ -188,11 +218,23 @@ export function FileUploader({ file, onFileSelect, disabled }: FileUploaderProps
                             <path d="M3 16.5v2a2 2 0 002 2h14a2 2 0 002-2v-2" strokeLinecap="round" />
                         </svg>
                         <p className="uploader__text">
-                            {isDragActive ? "Drop your voice note here" : "Drag & drop, click, or paste"}
+                            {isDragActive ? "Drop your voice note here" : "Tap to upload voice note"}
                         </p>
-                        <p className="uploader__subtext">
-                            {pasteHint ? "Press ⌘V / Ctrl+V to paste" : "Copy a voice note and paste it here"}
-                        </p>
+                        <p className="uploader__subtext">MP3, M4A, WAV, and other audio formats</p>
+
+                        {/* Paste button for mobile */}
+                        <button
+                            type="button"
+                            className="uploader__paste-btn"
+                            onClick={handlePasteClick}
+                            disabled={disabled || isPasting}
+                        >
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                <rect x="9" y="2" width="6" height="4" rx="1" />
+                                <path d="M8 4H6a2 2 0 00-2 2v14a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-2" />
+                            </svg>
+                            {isPasting ? "Reading clipboard..." : "Paste from clipboard"}
+                        </button>
                     </>
                 ) : (
                     <>
