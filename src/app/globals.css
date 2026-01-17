@@ -136,9 +136,129 @@ p {
   fill: currentColor;
 }
 
+/* Divider */
+.divider {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin: 1rem 0;
+  color: var(--text-muted);
+  font-size: 0.875rem;
+}
+
+.divider::before,
+.divider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--border-color);
+}
+
+/* Audio Recorder */
+.recorder {
+  margin-bottom: 1.5rem;
+}
+
+.recorder__btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 1rem;
+  font-size: 1rem;
+  font-weight: 600;
+  font-family: inherit;
+  border: none;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all var(--transition);
+}
+
+.recorder__btn--start {
+  background: var(--error);
+  color: white;
+}
+
+.recorder__btn--start:hover:not(:disabled) {
+  opacity: 0.9;
+  transform: scale(1.01);
+}
+
+.recorder__btn--start:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.recorder__btn--stop {
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+}
+
+.recorder__btn--stop:hover {
+  background: var(--bg-tertiary);
+}
+
+.recorder__btn svg {
+  width: 20px;
+  height: 20px;
+}
+
+.recorder__active {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+  padding: 1.5rem;
+  background: var(--bg-secondary);
+  border: 2px solid var(--error);
+  border-radius: var(--radius-lg);
+}
+
+.recorder__indicator {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.recorder__dot {
+  width: 12px;
+  height: 12px;
+  background: var(--error);
+  border-radius: 50%;
+  animation: pulse 1s ease-in-out infinite;
+}
+
+@keyframes pulse {
+
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+
+  50% {
+    opacity: 0.5;
+    transform: scale(0.9);
+  }
+}
+
+.recorder__time {
+  font-size: 1.5rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.recorder__hint {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  text-align: center;
+}
+
 /* File Uploader */
 .uploader {
-  margin-bottom: 1.5rem;
+  margin-bottom: 0;
 }
 
 .uploader__dropzone {

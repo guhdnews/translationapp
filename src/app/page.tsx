@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { FileUploader } from "@/components/FileUploader";
+import { AudioRecorder } from "@/components/AudioRecorder";
 import { LanguageSelector } from "@/components/LanguageSelector";
 import { SourceLanguageSelector } from "@/components/SourceLanguageSelector";
 import { TranslationResult } from "@/components/TranslationResult";
@@ -32,7 +33,6 @@ export default function Home() {
 
   const handleFileSelect = (selectedFile: File | null) => {
     setFile(selectedFile);
-    // Create object URL for audio playback
     if (selectedFile) {
       if (audioUrl) URL.revokeObjectURL(audioUrl);
       setAudioUrl(URL.createObjectURL(selectedFile));
@@ -40,6 +40,12 @@ export default function Home() {
       if (audioUrl) URL.revokeObjectURL(audioUrl);
       setAudioUrl(null);
     }
+  };
+
+  const handleRecordingComplete = (recordedFile: File) => {
+    setFile(recordedFile);
+    if (audioUrl) URL.revokeObjectURL(audioUrl);
+    setAudioUrl(URL.createObjectURL(recordedFile));
   };
 
   const handleTranslate = async () => {
@@ -101,6 +107,15 @@ export default function Home() {
             disabled={isLoading}
           />
 
+          <div className="divider">
+            <span>or</span>
+          </div>
+
+          <AudioRecorder
+            onRecordingComplete={handleRecordingComplete}
+            disabled={isLoading || !!file}
+          />
+
           <SourceLanguageSelector
             value={sourceLanguage}
             onChange={setSourceLanguage}
@@ -138,14 +153,6 @@ export default function Home() {
               Translate
             </button>
           )}
-
-          <div className="install-hint">
-            <svg className="install-hint__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M12 2v10m0 0l-4-4m4 4l4-4" strokeLinecap="round" strokeLinejoin="round" />
-              <path d="M5 12v7a2 2 0 002 2h10a2 2 0 002-2v-7" strokeLinecap="round" />
-            </svg>
-            <span>Install this app to share voice notes directly from your phone</span>
-          </div>
         </>
       ) : (
         <>
