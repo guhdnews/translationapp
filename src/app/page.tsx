@@ -4,6 +4,7 @@ import { useState } from "react";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { FileUploader } from "@/components/FileUploader";
 import { LanguageSelector } from "@/components/LanguageSelector";
+import { SourceLanguageSelector } from "@/components/SourceLanguageSelector";
 import { TranslationResult } from "@/components/TranslationResult";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
 
@@ -23,6 +24,7 @@ interface ErrorState {
 export default function Home() {
   const [file, setFile] = useState<File | null>(null);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
+  const [sourceLanguage, setSourceLanguage] = useState("auto");
   const [targetLanguage, setTargetLanguage] = useState("en");
   const [isLoading, setIsLoading] = useState(false);
   const [result, setResult] = useState<TranslationResponse | null>(null);
@@ -51,6 +53,7 @@ export default function Home() {
       const formData = new FormData();
       formData.append("audio", file);
       formData.append("targetLanguage", targetLanguage);
+      formData.append("sourceLanguage", sourceLanguage);
 
       const response = await fetch("/api/translate", {
         method: "POST",
@@ -96,6 +99,11 @@ export default function Home() {
             file={file}
             onFileSelect={handleFileSelect}
             disabled={isLoading}
+          />
+
+          <SourceLanguageSelector
+            value={sourceLanguage}
+            onChange={setSourceLanguage}
           />
 
           <LanguageSelector

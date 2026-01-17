@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useRef, useState, useEffect } from "react";
 import { SUPPORTED_AUDIO_TYPES } from "@/lib/gemini";
 
 interface FileUploaderProps {
@@ -11,7 +11,61 @@ interface FileUploaderProps {
 
 export function FileUploader({ file, onFileSelect, disabled }: FileUploaderProps) {
     const [isDragActive, setIsDragActive] = useState(false);
+    const [pasteHint, setPasteHint] = useState(false);
     const inputRef = useRef<HTMLInputElement>(null);
+    const dropzoneRef = useRef<HTMLDivElement>(null);
+
+    // Global paste event listener
+    useEffect(() => {
+        const handlePaste = async (e: ClipboardEvent) => {
+            if (disabled) return;
+
+            const items = e.clipboardData?.items;
+            if (!items) return;
+
+            for (const item of Array.from(items)) {
+                // Check if it's a file
+                if (item.kind === "file") {
+                    const pastedFile = item.getAsFile();
+                    if (pastedFile && isValidAudioFile(pastedFile)) {
+                        e.preventDefault();
+                        onFileSelect(pastedFile);
+                        return;
+                    }
+                }
+            }
+
+            // Also check for files directly (some browsers put files here)
+            const files = e.clipboardData?.files;
+            if (files && files.length > 0) {
+                const pastedFile = files[0];
+                if (isValidAudioFile(pastedFile)) {
+                    e.preventDefault();
+                    onFileSelect(pastedFile);
+                    return;
+                }
+            }
+        };
+
+        document.addEventListener("paste", handlePaste);
+        return () => document.removeEventListener("paste", handlePaste);
+    }, [disabled, onFileSelect]);
+
+    // Show paste hint on focus
+    useEffect(() => {
+        const handleFocus = () => setPasteHint(true);
+        const handleBlur = () => setPasteHint(false);
+
+        const dropzone = dropzoneRef.current;
+        if (dropzone) {
+            dropzone.addEventListener("focus", handleFocus);
+            dropzone.addEventListener("blur", handleBlur);
+            return () => {
+                dropzone.removeEventListener("focus", handleFocus);
+                dropzone.removeEventListener("blur", handleBlur);
+            };
+        }
+    }, []);
 
     const handleDrag = useCallback((e: React.DragEvent) => {
         e.preventDefault();
@@ -84,7 +138,8 @@ export function FileUploader({ file, onFileSelect, disabled }: FileUploaderProps
         }
         // Fallback: check file extension
         const ext = file.name.split(".").pop()?.toLowerCase();
-        return ["mp3", "m4a", "wav", "webm", "ogg", "aac", "mp4"].includes(ext || "");
+        // Also accept caf files (iOS voice memo format)
+        return ["mp3", "m4a", "wav", "webm", "ogg", "aac", "mp4", "caf"].includes(ext || "");
     };
 
     const formatFileSize = (bytes: number): string => {
@@ -97,6 +152,7 @@ export function FileUploader({ file, onFileSelect, disabled }: FileUploaderProps
         "uploader__dropzone",
         isDragActive && "uploader__dropzone--active",
         file && "uploader__dropzone--has-file",
+        pasteHint && !file && "uploader__dropzone--paste-ready",
     ]
         .filter(Boolean)
         .join(" ");
@@ -104,6 +160,7 @@ export function FileUploader({ file, onFileSelect, disabled }: FileUploaderProps
     return (
         <div className="uploader">
             <div
+                ref={dropzoneRef}
                 className={dropzoneClasses}
                 onClick={handleClick}
                 onDragEnter={handleDragIn}
@@ -113,12 +170,12 @@ export function FileUploader({ file, onFileSelect, disabled }: FileUploaderProps
                 role="button"
                 tabIndex={0}
                 onKeyDown={(e) => e.key === "Enter" && handleClick()}
-                aria-label={file ? `Selected file: ${file.name}. Click to change.` : "Upload audio file"}
+                aria-label={file ? `Selected file: ${file.name}. Click to change.` : "Upload audio file. You can also paste from clipboard."}
             >
                 <input
                     ref={inputRef}
                     type="file"
-                    accept="audio/*,.m4a,.mp3,.wav,.webm,.ogg,.aac"
+                    accept="audio/*,.m4a,.mp3,.wav,.webm,.ogg,.aac,.caf"
                     onChange={handleChange}
                     className="visually-hidden"
                     disabled={disabled}
@@ -131,9 +188,11 @@ export function FileUploader({ file, onFileSelect, disabled }: FileUploaderProps
                             <path d="M3 16.5v2a2 2 0 002 2h14a2 2 0 002-2v-2" strokeLinecap="round" />
                         </svg>
                         <p className="uploader__text">
-                            {isDragActive ? "Drop your voice note here" : "Drag & drop or click to upload"}
+                            {isDragActive ? "Drop your voice note here" : "Drag & drop, click, or paste"}
                         </p>
-                        <p className="uploader__subtext">MP3, M4A, WAV, OGG, and other audio formats</p>
+                        <p className="uploader__subtext">
+                            {pasteHint ? "Press ⌘V / Ctrl+V to paste" : "Copy a voice note and paste it here"}
+                        </p>
                     </>
                 ) : (
                     <>

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { GoogleGenAI } from "@google/genai";
-import { TARGET_LANGUAGES } from "@/lib/gemini";
+import { TARGET_LANGUAGES, SOURCE_LANGUAGES } from "@/lib/gemini";
 
 // Maximum file size: 25MB (Gemini API limit for inline data)
 const MAX_FILE_SIZE = 25 * 1024 * 1024;
@@ -10,6 +10,7 @@ export async function POST(request: NextRequest) {
         const formData = await request.formData();
         const audioFile = formData.get("audio") as File | null;
         const targetLanguage = formData.get("targetLanguage") as string | null;
+        const sourceLanguage = formData.get("sourceLanguage") as string | null;
 
         // Validation
         if (!audioFile) {
@@ -33,10 +34,15 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        // Find the language name
+        // Find the language names
         const targetLangName =
             TARGET_LANGUAGES.find((l) => l.code === targetLanguage)?.name ||
             targetLanguage;
+
+        const sourceLangName =
+            sourceLanguage && sourceLanguage !== "auto"
+                ? SOURCE_LANGUAGES.find((l) => l.code === sourceLanguage)?.name
+                : null;
 
         // Convert file to base64
         const bytes = await audioFile.arrayBuffer();
@@ -53,6 +59,7 @@ export async function POST(request: NextRequest) {
                 webm: "audio/webm",
                 ogg: "audio/ogg",
                 aac: "audio/aac",
+                caf: "audio/x-caf",
             };
             mimeType = mimeMap[ext || ""] || "audio/mpeg";
         }
@@ -68,53 +75,58 @@ export async function POST(request: NextRequest) {
 
         const genAI = new GoogleGenAI({ apiKey });
 
-        // Create the prompt for translation with enhanced dialect detection
-        const prompt = `You are an expert linguist and dialectologist specializing in accurate language and dialect identification. Your task is to analyze this audio recording with extreme precision.
+        // Build the source language hint for the prompt
+        const sourceHint = sourceLangName
+            ? `\n\n## IMPORTANT: USER-SPECIFIED LANGUAGE\nThe user has indicated this audio is in **${sourceLangName}**. Use this information to guide your transcription and ensure you are listening for this specific dialect/language. However, if the audio clearly sounds like a different dialect, note that in your response.`
+            : "";
 
-## CRITICAL: DIALECT DETECTION
+        // Create the prompt for translation with MAXIMUM accuracy
+        const prompt = `You are a world-class linguist, translator, and dialectologist. Your transcriptions and translations are used in professional, legal, and medical contexts where 100% accuracy is CRITICAL.
 
-Listen carefully to the audio and identify the EXACT regional dialect. Pay close attention to:
+## YOUR MISSION
+Transcribe and translate this audio with PERFECT accuracy. The original speaker should be able to confirm "yes, that is EXACTLY what I said, word for word."
+${sourceHint}
 
-**For Arabic:**
-- Phonological markers (pronunciation of ق، ج، ث، ذ، ظ)
-- Vocabulary choices unique to specific regions
-- Grammatical structures and verb conjugations
-- Intonation patterns and prosody
-- Common dialectal expressions
+## TRANSCRIPTION REQUIREMENTS (CRITICAL)
 
-Arabic dialect categories to consider:
-- Gulf Arabic: Emirati, Kuwaiti, Qatari, Bahraini, Saudi (Najdi, Hijazi, Eastern)
-- Yemeni Arabic: Sana'ani, Hadhrami, Ta'izzi-Adeni
-- Levantine Arabic: Lebanese, Syrian, Jordanian, Palestinian
-- Egyptian Arabic
-- Maghrebi Arabic: Moroccan, Algerian, Tunisian, Libyan
-- Sudanese Arabic
-- Iraqi Arabic
+1. **Listen multiple times mentally** - Do not rush. Consider every word carefully.
+2. **Capture EVERY word** - Include filler words, repetitions, self-corrections, partial words.
+3. **Preserve the exact meaning** - Do not paraphrase or summarize. Transcribe verbatim.
+4. **Handle unclear audio** - If a word is unclear, provide your best interpretation with [unclear] notation only if truly unintelligible.
+5. **Punctuation** - Add appropriate punctuation to reflect natural speech patterns.
 
-**For other languages**, identify the specific regional variant (e.g., Mexican vs Castilian Spanish, Brazilian vs European Portuguese, etc.)
+## DIALECT IDENTIFICATION
 
-## YOUR RESPONSE
+Identify the EXACT dialect with specificity:
+- For Arabic: Specify region (e.g., "Yemeni Arabic - Sana'ani dialect", "Egyptian Arabic - Cairene", "Gulf Arabic - Kuwaiti")
+- Listen for: Pronunciation of ق (qaf), ج (jeem), vowel patterns, vocabulary, intonation
+- For other languages: Specify regional variant (Mexican Spanish, Brazilian Portuguese, etc.)
 
-Provide:
-1. **Dialect**: The specific regional dialect with confidence. Be PRECISE - don't just say "Arabic", specify the exact dialect like "Yemeni Arabic (Sana'ani dialect)" or "Gulf Arabic (Kuwaiti)".
+## TRANSLITERATION REQUIREMENTS
 
-2. **Transcription**: Complete transcription in the original language using native script.
+Provide a romanized version using standard transliteration that allows English speakers to:
+- Pronounce the words correctly
+- Understand the phonetic structure
+- Read the original text aloud
 
-3. **Transliteration**: The transcription written in Latin/Roman characters so English speakers can read and pronounce it. Use standard transliteration conventions.
+## TRANSLATION REQUIREMENTS
 
-4. **Translation**: Accurate translation into ${targetLangName}, preserving meaning and tone.
+1. **Accuracy over elegance** - Prioritize exact meaning over smooth phrasing
+2. **Preserve nuance** - Capture tone, formality level, and emotional content
+3. **Cultural context** - Translate idioms appropriately but note them if relevant
+4. **No additions** - Do not add words or meanings not present in the original
 
-IMPORTANT: Return ONLY valid JSON in this exact format:
+## OUTPUT FORMAT
+
+Return ONLY this JSON (no markdown, no extra text):
 {
-  "dialect": "Specific dialect name with region",
-  "transcription": "original text in native script",
-  "transliteration": "romanized/Latin version of the transcription",
-  "translation": "translation in ${targetLangName}"
-}
+  "dialect": "Exact dialect with region",
+  "transcription": "Complete original text in native script",
+  "transliteration": "Romanized pronunciation guide",
+  "translation": "Accurate ${targetLangName} translation"
+}`;
 
-No additional text or markdown - only the JSON object.`;
-
-        // Call Gemini API with audio using Gemini 3 Flash (best accuracy)
+        // Call Gemini API with audio using Gemini 3 Flash
         const response = await genAI.models.generateContent({
             model: "gemini-3-flash-preview",
             contents: [
